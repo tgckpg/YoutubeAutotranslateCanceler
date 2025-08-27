@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Youtube Auto-translate Canceler
-// @namespace    https://github.com/pcouy/YoutubeAutotranslateCanceler/
+// @namespace    https://github.com/tgckpg/YoutubeAutotranslateCanceler/
 // @version      0.5
 // @description  Remove auto-translated youtube titles
 // @author       Pierre Couy
@@ -40,12 +40,12 @@
     var dataCache = {};
 
     var _runStates = {};
-    var _runOnce = function( k, f )
+    var _runOnce = function( txt, f )
     {
-        if( k in _runStates )
+        if( txt in _runStates )
             return;
-        _runStates[ k ] = true;
-        f();
+        _runStates[ txt ] = true;
+        f( txt );
     };
 
     var getVideoID = function( a )
@@ -65,20 +65,20 @@
     var resetChanged = function()
     {
         console.log(" --- Page Change detected! --- ");
-        currentLocation = document.title;
+        currentLocation = window.location.href;
         changedDescription = false;
         alreadyChanged = [];
-        dataCache = {};
+        // dataCache = {};
         _runStates = {};
     };
     resetChanged();
 
     var ignoreEl = function( el )
     {
-        if( el.querySelector( "yt-thumbnail-view-model" ) )
-        {
-            return true;
-        }
+        if( el.querySelector( "yt-thumbnail-view-model" )
+            || el.id == "thumbnail"
+        ) return true;
+
         return false;
     };
 
@@ -98,13 +98,13 @@
                 if( collapsedDesc )
                 {
                     var nLines = collapsedDesc.innerText.split( "\n" ).length;
-                    _runOnce( "DESC_COLLAPSED", () => { collapsedDesc.innerText = videoDescription.split( "\n" ).slice( 0, nLines ).join( "\n" ); } );
+                    _runOnce( videoDescription.split( "\n" ).slice( 0, nLines ).join( "\n" ), (t) => { collapsedDesc.innerText = t; } );
                 }
 
 				var expandedDesc = document.querySelector( "[id=expanded] yt-attributed-string" );
                 if( expandedDesc && !expandedDesc.hidden )
                 {
-                    _runOnce( "DESC_EXPANDED", () => { expandedDesc.innerText = videoDescription; } );
+                    _runOnce( videoDescription, (t) => { expandedDesc.innerText = t; } );
                 }
             }
 
@@ -147,7 +147,7 @@
                 pageTitle = document.querySelector( "[id=title] yt-formatted-string" );
                 if ( pageTitle )
                 {
-            		_runOnce( "PAGE_TITLE", () => { document.title = pageTitle.innerText = cachedTitles[ getVideoID( window.location.href ) ]; } );
+            		_runOnce( cachedTitles[ getVideoID( window.location.href ) ], ( t ) => { document.title = pageTitle.innerText = t; } );
                 }
             }
         }
@@ -168,7 +168,8 @@
 
     var changeTitles = function()
     {
-        if(currentLocation !== document.title) resetChanged();
+        if(currentLocation !== window.location.href)
+            resetChanged();
 
         if (NO_API_KEY)
             return;
@@ -176,15 +177,15 @@
         var APIcallIDs;
 
         // REFERENCED VIDEO TITLES - find video link elements in the page that have not yet been changed
-        var links = Array.prototype.slice.call(document.getElementsByTagName("a")).filter( a => {
+        var links = Array.prototype.slice.call(document.querySelectorAll("a")).filter( a => {
             return ~a.href.indexOf( "/watch?v=" ) && alreadyChanged.indexOf(a) == -1;
         } );
         var spans = [];
-        links = links.concat(spans).slice(0,30);
 
          // MAIN VIDEO DESCRIPTION - request to load original video description
         var mainVidID = "";
-        if (!changedDescription && window.location.href.includes ("/watch")){
+        if (!changedDescription && window.location.href.includes ("/watch"))
+        {
             mainVidID = window.location.href.split('v=')[1].split('&')[0];
         }
 
@@ -192,7 +193,7 @@
         { // Initiate API request
             // Get all videoIDs to put in the API request
             var IDs = links.map( a => getVideoID (a));
-            var APIFetchIDs = IDs.filter(id => cachedTitles[id] === undefined);
+            var APIFetchIDs = IDs.filter(id => cachedTitles[id] === undefined).slice(0,30);
             var requestUrl = url_template.replace("{IDs}", (mainVidID != ""? (mainVidID + ",") : "") + APIFetchIDs.join(','));
 
             if( dataCache[ requestUrl ] )
