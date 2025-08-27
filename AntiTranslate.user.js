@@ -35,7 +35,6 @@
     var cachedTitles = {} // Dictionary(id, title): Cache of API fetches, survives only Youtube Autoplay
 
     var currentLocation; // String: Current page URL
-    var changedDescription; // Bool: Changed description
     var alreadyChanged; // List(string): Links already changed
     var dataCache = {};
 
@@ -66,9 +65,7 @@
     {
         console.log(" --- Page Change detected! --- ");
         currentLocation = window.location.href;
-        changedDescription = false;
         alreadyChanged = [];
-        // dataCache = {};
         _runStates = {};
     };
     resetChanged();
@@ -90,7 +87,7 @@
 
             data = data.items;
 
-            if (mainVidID != "")
+            if( mainVidID != "" )
             { // Replace Main Video Description
                 var videoDescription = data[0].snippet.description;
 
@@ -109,12 +106,12 @@
             }
 
             // Create dictionary for all IDs and their original titles
-            data = data.forEach( v => {
+            data.forEach( v => {
                 cachedTitles[v.id] = v.snippet.title;
             } );
 
             // Change all previously found link elements
-            for( var i=0 ; i < links.length ; i++ )
+            for( var i=0, l = links.length; i < l; i ++ )
             {
                 var linkEl = links[i];
 
@@ -122,30 +119,29 @@
                     continue;
 
                 var curID = getVideoID( linkEl );
-                if (curID !== IDs[i])
+                if( curID !== IDs[i] )
                 { // Can happen when Youtube was still loading when script was invoked
-                    console.log ("YouTube was too slow again...");
-                    changedDescription = false; // Might not have been loaded aswell - fixes rare errors
+                    console.log( "YouTube was too slow again..." );
                 }
 
-                if (cachedTitles[curID] !== undefined)
+                if( cachedTitles[curID] !== undefined )
                 {
                     var originalTitle = cachedTitles[curID];
-                    var pageTitle = links[i].innerText.trim();
+                    var pageTitle = linkEl.innerText.trim();
                     if( pageTitle && pageTitle != originalTitle.replace(/\s{2,}/g, ' ') )
                     {
-                        console.log ("'" + pageTitle + "' --> '" + originalTitle + "'");
-                        links[i].innerText = originalTitle;
+                        console.log( "'" + pageTitle + "' --> '" + originalTitle + "'" );
+                        linkEl.innerText = originalTitle;
                     }
-                    alreadyChanged.push(links[i]);
+                    alreadyChanged.push(linkEl);
                 }
             }
 
             // MAIN TITLE
-            if (window.location.href.includes("/watch") )
+            if( window.location.href.includes("/watch") )
             {
                 pageTitle = document.querySelector( "[id=title] yt-formatted-string" );
-                if ( pageTitle )
+                if( pageTitle )
                 {
             		_runOnce( cachedTitles[ getVideoID( window.location.href ) ], ( t ) => { document.title = pageTitle.innerText = t; } );
                 }
@@ -177,23 +173,23 @@
         var APIcallIDs;
 
         // REFERENCED VIDEO TITLES - find video link elements in the page that have not yet been changed
-        var links = Array.prototype.slice.call(document.querySelectorAll("a")).filter( a => {
-            return ~a.href.indexOf( "/watch?v=" ) && alreadyChanged.indexOf(a) == -1;
-        } );
-        var spans = [];
+        var links = Array.prototype.slice
+            .call( document.querySelectorAll("a") )
+            .filter( a => ~a.href.indexOf( "/watch?v=" ) && !~alreadyChanged.indexOf(a) )
+        ;
 
          // MAIN VIDEO DESCRIPTION - request to load original video description
         var mainVidID = "";
-        if (!changedDescription && window.location.href.includes ("/watch"))
+        if( ~window.location.href.indexOf( "/watch" ) )
         {
             mainVidID = window.location.href.split('v=')[1].split('&')[0];
         }
 
-        if(mainVidID != "" || links.length > 0)
+        if( mainVidID != "" || links.length > 0 )
         { // Initiate API request
             // Get all videoIDs to put in the API request
-            var IDs = links.map( a => getVideoID (a));
-            var APIFetchIDs = IDs.filter(id => cachedTitles[id] === undefined).slice(0,30);
+            var IDs = links.map( a => getVideoID(a) );
+            var APIFetchIDs = IDs.filter( id => cachedTitles[id] === undefined ).slice( 0, 30 );
             var requestUrl = url_template.replace("{IDs}", (mainVidID != ""? (mainVidID + ",") : "") + APIFetchIDs.join(','));
 
             if( dataCache[ requestUrl ] )
